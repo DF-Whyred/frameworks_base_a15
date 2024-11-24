@@ -71,6 +71,8 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
     @Nullable
     private View mCutoutSpace;
     @Nullable
+    private View mTickerView;
+    @Nullable
     private DisplayCutout mDisplayCutout;
     @Nullable
     private Rect mDisplaySize;
@@ -351,6 +353,12 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
                 getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end),
                 0);
 
+        mTickerContainer.setPaddingRelative(
+                statusBarPaddingStart,
+                getResources().getDimensionPixelSize(R.dimen.status_bar_padding_top),
+                getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end),
+                0);
+
         findViewById(R.id.notification_lights_out)
                 .setPaddingRelative(0, statusBarPaddingStart, 0, 0);
 
@@ -366,6 +374,7 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
         updateStatusBarHeight();
         updateCutoutLocation();
         updateSafeInsets();
+        setDisplayToTicker(mDisplayCutout != null ? mDisplayCutout.getBoundingRectTop() : new Rect());
     }
 
     private void updateCutoutLocation() {
@@ -432,5 +441,31 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
 
     interface InsetsFetcher {
         Insets fetchInsets();
+    }
+
+    public void setTickerView(View tickerView) {
+        mTickerView = tickerView;
+        setDisplayToTicker(mDisplayCutout != null ? mDisplayCutout.getBoundingRectTop() : new Rect());
+    }
+
+    private boolean isCenterDisplayCutout() {
+        return mCutoutSpace.getVisibility() == View.VISIBLE;
+    }
+
+    public void setDisplayToTicker(Rect rect) {
+        if (mTickerView == null || mDisplaySize == null || rect == null) {
+            return;
+        }
+        final MarqueeTickerView tickerText = (MarqueeTickerView) mTickerView.findViewById(R.id.tickerText);
+        final int tickerPaddingStart = getResources().getDimensionPixelSize(R.dimen.status_bar_padding_start);
+        final int tickerPaddingEnd = getResources().getDimensionPixelSize(R.dimen.status_bar_padding_end);
+        final MarqueeTicker marqueeTicker = tickerText.getTicker();
+        final int screenWidth = mDisplaySize.width();
+        final int showTickerWidth = screenWidth - (tickerPaddingStart + tickerPaddingEnd);
+        final int leftRect = screenWidth / 2 - tickerPaddingStart - rect.width() / 2;
+        final int rightRect = leftRect + rect.width();
+        marqueeTicker.setDisplayCutout(isCenterDisplayCutout(), leftRect, rightRect,
+                showTickerWidth, mRotationOrientation != RotationUtils.ROTATION_LANDSCAPE,
+                isCenterDisplayCutout(), 0);
     }
 }
