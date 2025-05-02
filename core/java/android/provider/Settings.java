@@ -13231,6 +13231,13 @@ public final class Settings {
         public static final String LOCK_SCREEN_WEATHER_ENABLED = "lockscreen_weather_enabled";
 
         /**
+         * Whether lockscreen smartspace is enabled.
+         *
+         * @hide
+         */
+        public static final String LOCK_SCREEN_SMARTSPACE_ENABLED = "lockscreen_smartspace_enabled";
+
+        /**
          * Whether the feature that the device will fire a haptic when users scroll and hit
          * the edge of the screen is enabled.
          *

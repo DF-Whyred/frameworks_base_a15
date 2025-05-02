@@ -30,9 +30,11 @@ import android.graphics.Rect
 import android.net.Uri
 import android.os.Handler
 import android.os.UserHandle
+import android.provider.Settings
 import android.provider.Settings.Secure.LOCK_SCREEN_ALLOW_PRIVATE_NOTIFICATIONS
 import android.provider.Settings.Secure.LOCK_SCREEN_SHOW_NOTIFICATIONS
 import android.provider.Settings.Secure.LOCK_SCREEN_WEATHER_ENABLED
+import android.provider.Settings.Secure.LOCK_SCREEN_SMARTSPACE_ENABLED
 import android.util.Log
 import android.view.ContextThemeWrapper
 import android.view.View
@@ -307,20 +309,51 @@ constructor(
             }
         }
 
+    private val mShowWeatherObserver = object : ContentObserver(null) {
+        override fun onChange(change: Boolean) {
+            val isEnabled = secureSettings.getIntForUser(
+                Settings.Secure.LOCK_SCREEN_WEATHER_ENABLED,
+                1, /* default enabled */
+                userTracker.userId
+            ) == 1
+            smartspaceViews.forEach { view ->
+                if (view.getTag(R.id.tag_smartspace_view) == SmartspaceViewModel.SURFACE_WEATHER_VIEW) {
+                    (view as View).visibility = if (isEnabled) View.VISIBLE else View.GONE
+                }
+            }
+        }
+    }
+
+    private val mShowSmartspaceObserver = object : ContentObserver(null) {
+        override fun onChange(change: Boolean) {
+            smartspaceViews.forEach { view ->
+                val isEnabled = secureSettings.getIntForUser(
+                    Settings.Secure.LOCK_SCREEN_SMARTSPACE_ENABLED,
+                    1, /* default enabled */
+                    userTracker.userId
+                ) == 1
+                (view as View).visibility = if (isEnabled) View.VISIBLE else View.GONE
+            }
+        }
+    }
+
     init {
         deviceProvisionedController.addCallback(deviceProvisionedListener)
         dumpManager.registerDumpable(this)
     }
 
-    val isEnabled: Boolean = plugin != null
+    val isEnabled: Boolean
+        get() = plugin != null && secureSettings.getIntForUser(
+            LOCK_SCREEN_SMARTSPACE_ENABLED,
+            1, /* default enabled */
+            userTracker.userId) == 1
 
     val isDateWeatherDecoupled: Boolean = datePlugin != null && weatherPlugin != null
 
     val isWeatherEnabled: Boolean
         get() {
             val showWeather =
-                secureSettings.getIntForUser(LOCK_SCREEN_WEATHER_ENABLED, 1, userTracker.userId) ==
-                    1
+                secureSettings.getIntForUser(LOCK_SCREEN_WEATHER_ENABLED, 1, userTracker.userId) == 1
             return showWeather
         }
 
@@ -446,6 +479,7 @@ constructor(
         return (ssView as View).apply {
             setTag(R.id.tag_smartspace_view, Any())
             addOnAttachStateChangeListener(stateChangeListener)
+            visibility = if (isEnabled) View.VISIBLE else View.GONE
 
             if (smartspaceLockscreenViewmodel()) {
                 val viewModel = smartspaceViewModelFactory.create(surfaceName)
@@ -503,6 +537,12 @@ constructor(
             settingsObserver,
             UserHandle.USER_ALL,
         )
+        contentResolver.registerContentObserver(
+            secureSettings.getUriFor(Settings.Secure.LOCK_SCREEN_SMARTSPACE_ENABLED),
+            true,
+            mShowSmartspaceObserver,
+            UserHandle.USER_ALL,
+        )
         configurationController.addCallback(configChangeListener)
         statusBarStateController.addCallback(statusBarStateListener)
         bypassController.registerOnBypassStateChangedListener(bypassStateChangedListener)
@@ -545,6 +585,7 @@ constructor(
         }
         userTracker.removeCallback(userTrackerCallback)
         contentResolver.unregisterContentObserver(settingsObserver)
+        contentResolver.unregisterContentObserver(mShowSmartspaceObserver)
         configurationController.removeCallback(configChangeListener)
         statusBarStateController.removeCallback(statusBarStateListener)
         bypassController.unregisterOnBypassStateChangedListener(bypassStateChangedListener)

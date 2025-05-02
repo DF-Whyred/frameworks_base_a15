@@ -129,6 +129,12 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
             setWeatherVisibility();
         }
     };
+    private final ContentObserver mShowSmartspaceObserver = new ContentObserver(null) {
+        @Override
+        public void onChange(boolean change) {
+            setSmartspaceVisibility();
+        }
+    };
 
     private final KeyguardUnlockAnimationController.KeyguardUnlockAnimationListener
             mKeyguardUnlockAnimationListener =
@@ -294,6 +300,13 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
                     mShowWeatherObserver,
                     UserHandle.USER_ALL
             );
+
+            mSecureSettings.registerContentObserverForUserSync(
+                    Settings.Secure.LOCK_SCREEN_SMARTSPACE_ENABLED,
+                    false, /* notifyForDescendants */
+                    mShowSmartspaceObserver,
+                    UserHandle.USER_ALL
+            );
         });
 
         updateDoubleLineClock();
@@ -345,6 +358,7 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
         mBgExecutor.execute(() -> {
             mSecureSettings.unregisterContentObserverSync(mDoubleLineClockObserver);
             mSecureSettings.unregisterContentObserverSync(mShowWeatherObserver);
+            mSecureSettings.unregisterContentObserverSync(mShowSmartspaceObserver);
         });
 
         mKeyguardUnlockAnimationController.removeKeyguardUnlockAnimationListener(
@@ -627,11 +641,9 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
 
     private void setDateWeatherVisibility() {
         if (mDateWeatherView != null) {
-            mUiExecutor.execute(() -> {
-                mDateWeatherView.setVisibility(clockHasCustomWeatherDataDisplay()
-                        ? mKeyguardDateWeatherViewInvisibility
-                        : View.VISIBLE);
-            });
+            mDateWeatherView.setVisibility(mKeyguardDateWeatherViewInvisibility);
+            setWeatherVisibility();
+            setSmartspaceVisibility();
         }
     }
 
@@ -641,6 +653,16 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
                 mWeatherView.setVisibility(
                         mSmartspaceController.isWeatherEnabled() ? View.VISIBLE : View.GONE);
             });
+        }
+    }
+
+    private void setSmartspaceVisibility() {
+        if (mSmartspaceView != null) {
+            boolean isEnabled = mSecureSettings.getIntForUser(
+                    Settings.Secure.LOCK_SCREEN_SMARTSPACE_ENABLED,
+                    1, /* default enabled */
+                    UserHandle.USER_CURRENT) == 1;
+            mSmartspaceView.setVisibility(isEnabled ? View.VISIBLE : View.GONE);
         }
     }
 
