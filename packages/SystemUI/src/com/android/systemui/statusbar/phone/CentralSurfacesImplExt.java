@@ -11,24 +11,13 @@ import static android.app.StatusBarManager.DISABLE_NOTIFICATION_TICKER;
 import android.annotation.NonNull;
 import android.app.Notification;
 import android.content.Context;
-import android.hardware.display.DisplayManager;
-import android.os.PowerManager;
-import android.os.SystemClock;
-import android.os.SystemProperties;
-import android.os.VibrationAttributes;
-import android.os.VibrationEffect;
-import android.os.VibrationExtInfo;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.ViewConfiguration;
 import android.view.ViewStub;
 
 import com.android.systemui.demomode.DemoModeController;
 import com.android.systemui.res.R;
 import com.android.systemui.statusbar.NotificationLockscreenUserManager;
-import com.android.systemui.statusbar.VibratorHelper;
 import com.android.systemui.statusbar.notification.collection.NotifCollection.CancellationReason;
 import com.android.systemui.statusbar.notification.collection.NotifPipeline;
 import com.android.systemui.statusbar.notification.collection.notifcollection.NotifCollectionListener;
@@ -38,9 +27,7 @@ import com.android.systemui.statusbar.policy.ClockCenter;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.window.StatusBarWindowController;
-import com.android.systemui.util.concurrency.MessageRouter;
 
-import org.sun.systemui.shade.CustomGestureListener;
 import org.sun.systemui.statusbar.ticker.AdvertSwitcherView;
 import org.sun.systemui.statusbar.ticker.MarqueeTickerEx;
 import org.sun.systemui.statusbar.ticker.MarqueeTickerView;
@@ -49,21 +36,7 @@ import org.sun.systemui.statusbar.ticker.TickerEx;
 class CentralSurfacesImplExt {
 
     private static final String TAG = "CentralSurfacesImplExt";
-
-    private static final int MSG_LONG_PRESS_BRIGHTNESS_CHANGE = 2001;
-
-    private static final float BRIGHTNESS_CONTROL_PADDING = 0.18f;
-    private static final int BRIGHTNESS_CONTROL_EXTRA_HEIGHT = 20;
-    private static final int BRIGHTNESS_CONTROL_LINGER_THRESHOLD = 20;
-    private static final long BRIGHTNESS_CONTROL_LONG_PRESS_TIMEOUT = 750L;
-
-    private static final VibrationAttributes HARDWARE_FEEDBACK_VIBRATION_ATTRIBUTES =
-            VibrationAttributes.createForUsage(VibrationAttributes.USAGE_HARDWARE_FEEDBACK);
-    private static final VibrationEffect EFFECT_HEAVY_CLICK =
-            VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK);
-
-    private static final long HAPTIC_MIN_INTERVAL =
-            SystemProperties.getLong("sys.nameless.haptic.slider_interval", 50L);
+    private static final boolean DEBUG_TICKER = false;
 
     private static class InstanceHolder {
         private static CentralSurfacesImplExt INSTANCE = new CentralSurfacesImplExt();
@@ -75,195 +48,39 @@ class CentralSurfacesImplExt {
 
     private CentralSurfacesImpl mCentralSurfacesImpl;
     private Context mContext;
-    private CustomGestureListener mCustomGestureListener;
     private DemoModeController mDemoModeController;
     private DeviceProvisionedController mDeviceProvisionedController;
     private HeadsUpManagerPhone mHeadsUpManager;
-    private int mDisplayId;
     private KeyguardStateController mKeyguardStateController;
-    private MessageRouter mMessageRouter;
     private NotifCollectionListener mNotifCollectionListener;
     private NotifPipeline mNotifPipeline;
     private NotificationInterruptStateProvider mNotificationInterruptStateProvider;
     private NotificationLockscreenUserManager mLockscreenUserManager;
     private StatusBarWindowController mStatusBarWindowController;
-    private VibratorHelper mVibratorHelper;
-
-    private DisplayManager mDisplayManager;
-    private PowerManager mPowerManager;
-
-    private float mMinimumBacklight;
-    private float mMaximumBacklight;
-    private int mBrightnessControlHeight;
-
-    private float mCurrentBrightness;
-    private int mInitialTouchX;
-    private int mInitialTouchY;
-    private int mLinger;
-    private boolean mBrightnessChanged;
-    private boolean mJustPeeked;
-    private boolean mInBrightnessControl;
-
-    private long mLastHapticTimestamp;
 
     private AdvertSwitcherView mSwitcherView;
     private MarqueeTickerEx mTicker;
 
     void init(CentralSurfacesImpl centralSurfacesImpl,
             Context context,
-            CustomGestureListener customGestureListener,
             DemoModeController demoModeController,
             DeviceProvisionedController deviceProvisionedController,
             HeadsUpManagerPhone headsUpManager,
-            int displayId,
             KeyguardStateController keyguardStateController,
-            MessageRouter messageRouter,
             NotifPipeline notifPipeline,
             NotificationInterruptStateProvider notificationInterruptStateProvider,
             NotificationLockscreenUserManager lockscreenUserManager,
-            StatusBarWindowController statusBarWindowController,
-            VibratorHelper vibratorHelper) {
+            StatusBarWindowController statusBarWindowController) {
         mCentralSurfacesImpl = centralSurfacesImpl;
         mContext = context;
-        mCustomGestureListener = customGestureListener;
         mDemoModeController = demoModeController;
         mDeviceProvisionedController = deviceProvisionedController;
-        mDisplayId = displayId;
         mHeadsUpManager = headsUpManager;
         mLockscreenUserManager = lockscreenUserManager;
         mKeyguardStateController = keyguardStateController;
-        mMessageRouter = messageRouter;
         mNotifPipeline = notifPipeline;
         mNotificationInterruptStateProvider = notificationInterruptStateProvider;
         mStatusBarWindowController = statusBarWindowController;
-        mVibratorHelper = vibratorHelper;
-
-        mDisplayManager = mContext.getSystemService(DisplayManager.class);
-        mPowerManager = mContext.getSystemService(PowerManager.class);
-
-        mMinimumBacklight = mPowerManager.getBrightnessConstraint(
-                PowerManager.BRIGHTNESS_CONSTRAINT_TYPE_MINIMUM);
-        mMaximumBacklight = mPowerManager.getBrightnessConstraint(
-                PowerManager.BRIGHTNESS_CONSTRAINT_TYPE_MAXIMUM);
-
-        mMessageRouter.subscribeTo(MSG_LONG_PRESS_BRIGHTNESS_CHANGE,
-                id -> onLongPressBrightnessChange());
-    }
-
-    void updateResources() {
-        mBrightnessControlHeight = mStatusBarWindowController.getStatusBarHeight()
-                + BRIGHTNESS_CONTROL_EXTRA_HEIGHT;
-    }
-
-    private void onLongPressBrightnessChange() {
-        mVibratorHelper.vibrateExt(new VibrationExtInfo.Builder()
-                .setEffectId(UNIFIED_SUCCESS)
-                .setFallbackEffectId(HEAVY_CLICK)
-                .setVibrationAttributes(HARDWARE_FEEDBACK_VIBRATION_ATTRIBUTES)
-                .build()
-        );
-        mInBrightnessControl = true;
-        adjustBrightness(mInitialTouchX);
-        mLinger = BRIGHTNESS_CONTROL_LINGER_THRESHOLD + 1;
-    }
-
-    private void adjustBrightness(int x) {
-        mBrightnessChanged = true;
-        final float raw = (float) x / mCentralSurfacesImpl.getDisplayWidth();
-
-        // Add a padding to the brightness control on both sides to
-        // make it easier to reach min/max brightness
-        final float padded = Math.min(1.0f - BRIGHTNESS_CONTROL_PADDING,
-                Math.max(BRIGHTNESS_CONTROL_PADDING, raw));
-        final float value = (padded - BRIGHTNESS_CONTROL_PADDING) /
-                (1 - (2.0f * BRIGHTNESS_CONTROL_PADDING));
-        final float val = convertGammaToLinearFloat(
-                Math.round(value * GAMMA_SPACE_MAX),
-                mMinimumBacklight, mMaximumBacklight);
-        if (mCurrentBrightness != val) {
-            if (mCurrentBrightness != -1) {
-                final long now = SystemClock.uptimeMillis();
-                if (val == mMinimumBacklight || val == mMaximumBacklight) {
-                    mLastHapticTimestamp = now;
-                    mVibratorHelper.vibrateExt(new VibrationExtInfo.Builder()
-                            .setEffectId(SLIDER_EDGE)
-                            .setVibrationAttributes(VIBRATION_ATTRIBUTES_SLIDER)
-                            .build()
-                    );
-                } else if (now - mLastHapticTimestamp > HAPTIC_MIN_INTERVAL) {
-                    mLastHapticTimestamp = now;
-                    mVibratorHelper.vibrateExt(new VibrationExtInfo.Builder()
-                            .setEffectId(SLIDER_STEP)
-                            .setAmplitude((float) (val - mMinimumBacklight)
-                                        / (mMaximumBacklight - mMinimumBacklight))
-                            .setVibrationAttributes(VIBRATION_ATTRIBUTES_SLIDER)
-                            .build()
-                    );
-                }
-            }
-            mCurrentBrightness = val;
-            mDisplayManager.setTemporaryBrightness(mDisplayId, val);
-        }
-    }
-
-    void interceptForBrightnessControl(MotionEvent event) {
-        final int action = event.getAction();
-        final int x = (int) event.getRawX();
-        final int y = (int) event.getRawY();
-        if (action == MotionEvent.ACTION_DOWN) {
-            mInBrightnessControl = false;
-            if (y < mBrightnessControlHeight) {
-                mCurrentBrightness = -1;
-                mLinger = 0;
-                mInitialTouchX = x;
-                mInitialTouchY = y;
-                mJustPeeked = true;
-                mMessageRouter.cancelMessages(MSG_LONG_PRESS_BRIGHTNESS_CHANGE);
-                mMessageRouter.sendMessageDelayed(MSG_LONG_PRESS_BRIGHTNESS_CHANGE,
-                        BRIGHTNESS_CONTROL_LONG_PRESS_TIMEOUT);
-            }
-        } else if (action == MotionEvent.ACTION_MOVE) {
-            if (y < mBrightnessControlHeight && mJustPeeked) {
-                if (mLinger > BRIGHTNESS_CONTROL_LINGER_THRESHOLD) {
-                    adjustBrightness(x);
-                } else {
-                    final int xDiff = Math.abs(x - mInitialTouchX);
-                    final int yDiff = Math.abs(y - mInitialTouchY);
-                    final int touchSlop = ViewConfiguration.get(mContext).getScaledTouchSlop();
-                    if (xDiff > yDiff) {
-                        mLinger++;
-                    }
-                    if (xDiff > touchSlop || yDiff > touchSlop) {
-                        mMessageRouter.cancelMessages(MSG_LONG_PRESS_BRIGHTNESS_CHANGE);
-                    }
-                }
-            } else {
-                if (y > mBrightnessControlHeight) {
-                    mJustPeeked = false;
-                }
-                mMessageRouter.cancelMessages(MSG_LONG_PRESS_BRIGHTNESS_CHANGE);
-            }
-        } else if (action == MotionEvent.ACTION_UP) {
-            mMessageRouter.cancelMessages(MSG_LONG_PRESS_BRIGHTNESS_CHANGE);
-            mInBrightnessControl = false;
-        } else if (action == MotionEvent.ACTION_CANCEL) {
-            mMessageRouter.cancelMessages(MSG_LONG_PRESS_BRIGHTNESS_CHANGE);
-        }
-    }
-
-    void checkBrightnessChanged(boolean upOrCancel) {
-        if (mBrightnessChanged && upOrCancel) {
-            mBrightnessChanged = false;
-            mDisplayManager.setBrightness(mDisplayId, mCurrentBrightness);
-        }
-    }
-
-    boolean isBrightnessControlEnabled() {
-        return mCustomGestureListener.isStatusbarBrightnessControlEnabled();
-    }
-
-    boolean isInBrightnessControl() {
-        return mInBrightnessControl;
     }
 
     private void initEntryListener() {
