@@ -27,11 +27,9 @@ import android.os.RemoteException;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.ContextThemeWrapper;
-import android.view.Display;
 import android.view.DisplayCutout;
 import android.view.IWindowManager;
 import android.view.MotionEvent;
-import android.view.Surface;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
@@ -411,16 +409,6 @@ public class PhoneStatusBarView extends FrameLayout implements Callbacks {
                 insets.top,
                 insets.right,
                 getPaddingBottom());
-
-        // Apply negative paddings to centered area layout so that we'll actually be on the center.
-        Display display = getDisplay();
-        final int winRotation = display != null ? display.getRotation() : Surface.ROTATION_0;
-        LayoutParams centeredAreaParams =
-                (LayoutParams) findViewById(R.id.centered_area).getLayoutParams();
-        centeredAreaParams.leftMargin =
-                winRotation == Surface.ROTATION_0 ? -insets.left : 0;
-        centeredAreaParams.rightMargin =
-                winRotation == Surface.ROTATION_0 ? -insets.right : 0;
     }
 
     private void updateWindowHeight() {
