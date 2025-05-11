@@ -5,8 +5,6 @@
 
 package org.sun.systemui.statusbar.ticker
 
-import static android.provider.Settings.System.STATUS_BAR_NOTIFICATION_TICKER
-
 import android.content.Context
 import android.database.ContentObserver
 import android.net.Uri
