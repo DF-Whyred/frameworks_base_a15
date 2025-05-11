@@ -1191,8 +1191,8 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces {
     protected void makeStatusBarView(@Nullable RegisterStatusBarResult result) {
         CentralSurfacesImplExt.getInstance().init(this, mContext,
                 mDemoModeController, mDeviceProvisionedController,
-                mHeadsUpManagerPhone, mDisplayId, mKeyguardStateController,
-                mMessageRouter, mNotifPipeline, mNotificationInterruptStateProvider,
+                mHeadsUpManagerPhone, mKeyguardStateController,
+                mNotifPipeline, mNotificationInterruptStateProvider,
                 mLockscreenUserManager, mStatusBarWindowController);
 
         updateDisplaySize(); // populates mDisplayMetrics
