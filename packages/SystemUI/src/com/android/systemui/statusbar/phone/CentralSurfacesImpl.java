@@ -239,7 +239,7 @@ import com.android.systemui.statusbar.policy.DeviceProvisionedController;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController.DeviceProvisionedListener;
 import com.android.systemui.statusbar.policy.ExtensionController;
 import com.android.systemui.statusbar.policy.GameSpaceManager;
-import com.android.systemui.statusbar.notification.headsup.HeadsUpManager;
+import com.android.systemui.statusbar.notification.headsup.HeadsUpManagerImpl;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.UserInfoControllerImpl;
 import com.android.systemui.statusbar.window.StatusBarWindowControllerStore;
@@ -438,7 +438,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
     private final KeyguardBypassController mKeyguardBypassController;
     private final KeyguardStateController mKeyguardStateController;
     private final HeadsUpManager mHeadsUpManager;
-    private final HeadsUpManagerPhone mHeadsUpManagerPhone;
+    private final HeadsUpManagerImpl mHeadsUpManagerPhone;
     private final ShadeTouchableRegionManager mShadeTouchableRegionManager;
     private final FalsingCollector mFalsingCollector;
     private final FalsingManager mFalsingManager;
@@ -680,7 +680,7 @@ public class CentralSurfacesImpl implements CoreStartable, CentralSurfaces,
             KeyguardBypassController keyguardBypassController,
             KeyguardStateController keyguardStateController,
             HeadsUpManager headsUpManager,
-            HeadsUpManagerPhone headsUpManagerPhone,
+            HeadsUpManagerImpl headsUpManagerPhone,
             FalsingManager falsingManager,
             FalsingCollector falsingCollector,
             BroadcastDispatcher broadcastDispatcher,

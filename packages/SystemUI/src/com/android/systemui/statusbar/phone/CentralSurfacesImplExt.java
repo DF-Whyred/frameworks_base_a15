@@ -24,7 +24,7 @@ import com.android.systemui.statusbar.notification.collection.NotificationEntry;
 import com.android.systemui.statusbar.notification.interruption.NotificationInterruptStateProvider;
 import com.android.systemui.statusbar.policy.ClockCenter;
 import com.android.systemui.statusbar.policy.DeviceProvisionedController;
-import com.android.systemui.statusbar.notification.headsup.HeadsUpManager;
+import com.android.systemui.statusbar.notification.headsup.HeadsUpManagerImpl;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.window.StatusBarWindowController;
 
@@ -50,7 +50,7 @@ class CentralSurfacesImplExt {
     private Context mContext;
     private DemoModeController mDemoModeController;
     private DeviceProvisionedController mDeviceProvisionedController;
-    private HeadsUpManagerPhone mHeadsUpManager;
+    private HeadsUpManagerImpl mHeadsUpManager;
     private KeyguardStateController mKeyguardStateController;
     private NotifCollectionListener mNotifCollectionListener;
     private NotifPipeline mNotifPipeline;
@@ -66,7 +66,7 @@ class CentralSurfacesImplExt {
             Context context,
             DemoModeController demoModeController,
             DeviceProvisionedController deviceProvisionedController,
-            HeadsUpManagerPhone headsUpManager,
+            HeadsUpManagerImpl headsUpManager,
             KeyguardStateController keyguardStateController,
             NotifPipeline notifPipeline,
             NotificationInterruptStateProvider notificationInterruptStateProvider,
